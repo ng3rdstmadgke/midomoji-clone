@@ -1,14 +1,14 @@
-struct Node<K, V> where K: Copy + Ord + Eq, V: Copy{
+struct Node<K, V> where K: Copy + Ord + Eq {
     key   : Option<K>,
     values: Vec<V>,
     nexts : Vec<Node<K, V>>,
 }
 
-pub struct Trie<K, V> where K: Copy + Ord + Eq, V: Copy{
+pub struct Trie<K, V> where K: Copy + Ord + Eq {
     root: Node<K, V>,
 }
 
-impl<K, V> Trie<K, V> where K: Copy + Ord + Eq, V: Copy {
+impl<K, V> Trie<K, V> where K: Copy + Ord + Eq {
     pub fn new() -> Trie<K, V> {
         Trie { root: Node { key: None, values: Vec::new(), nexts: Vec::new() }}
     }
@@ -103,19 +103,22 @@ mod tests {
 
     #[test]
     fn test_trie_2() {
-        let mut trie: Trie<u8, u32> = Trie::new();
+        let mut trie: Trie<u8, String> = Trie::new();
         let s1 = String::from("abc");
         let s2 = String::from("abd");
         let s3 = String::from("zyx");
         let s4 = String::from("zwx");
-        trie.set(s1.as_bytes(), 0);
-        trie.set(s2.as_bytes(), 1);
-        trie.set(s3.as_bytes(), 2);
-        trie.set(s4.as_bytes(), 3);
-        assert_eq!(0, trie.get(s1.as_bytes()).unwrap()[0]);
-        assert_eq!(1, trie.get(s2.as_bytes()).unwrap()[0]);
-        assert_eq!(2, trie.get(s3.as_bytes()).unwrap()[0]);
-        assert_eq!(3, trie.get(s4.as_bytes()).unwrap()[0]);
+        trie.set(s1.as_bytes(), String::from("abc"));
+        trie.set(s2.as_bytes(), String::from("abd"));
+        trie.set(s3.as_bytes(), String::from("zyx"));
+        trie.set(s4.as_bytes(), String::from("zwx"));
+        trie.set(s1.as_bytes(), String::from("abc"));
+        assert_eq!(s1, trie.get(s1.as_bytes()).unwrap()[0]);
+        assert_eq!(s1, trie.get(s1.as_bytes()).unwrap()[1]);
+        assert_eq!(s1, trie.get(s1.as_bytes()).unwrap()[0]);
+        assert_eq!(s2, trie.get(s2.as_bytes()).unwrap()[0]);
+        assert_eq!(s3, trie.get(s3.as_bytes()).unwrap()[0]);
+        assert_eq!(s4, trie.get(s4.as_bytes()).unwrap()[0]);
     }
 
     #[test]
