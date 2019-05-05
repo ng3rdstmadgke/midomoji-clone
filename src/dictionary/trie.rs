@@ -117,7 +117,8 @@ impl<T: Clone> Trie<T> {
     ///
     /// * `len` - ダブル配列の初期サイズ
     pub fn to_double_array(self, mut len: usize) -> (Vec<u32>, Vec<u32>, Vec<T>) {
-        len = if len < 256 { 256 } else { len };
+        let max_key = u8::max_value() as usize + 1;      // keyが取りうる値のパターン
+        len = if max_key >= len { max_key } else { len };
         let mut base_arr: Vec<u32> = vec![0; len];
         let mut check_arr: Vec<u32> = vec![0; len];
         let mut data_arr: Vec<T> = vec![];
@@ -147,7 +148,7 @@ impl<T: Clone> Trie<T> {
             base_arr[curr_idx] = base as u32;
 
             // 配列の長さが足りなければ配列を拡張
-            if base + 256 >= len {
+            if base + max_key >= len {
                 len = len * 2;
                 base_arr.resize(len, 0);
                 check_arr.resize(len, 0);
@@ -163,8 +164,8 @@ impl<T: Clone> Trie<T> {
         }
         // 配列のリサイズ
         let new_len = match bit_cache.last_index_of_one() {
-            None          => 256,
-            Some(new_len) => new_len + 256,
+            None          => max_key,
+            Some(new_len) => new_len + max_key,
         };
         base_arr.resize(new_len, 0);
         check_arr.resize(new_len, 0);
@@ -293,7 +294,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find__base_1() {
+    fn test_find_base_1() {
         let nodes: Vec<Node<u32>> = vec![
             Node::<u32> { key: 1, values: vec![], nexts: vec![] },
             Node::<u32> { key: 2, values: vec![], nexts: vec![] },
