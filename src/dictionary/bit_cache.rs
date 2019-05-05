@@ -66,6 +66,18 @@ impl BitCache {
         }
         self.cache.len() * 64
     }
+
+    /// cacheの中で一番最後に現れる1のindexを返す
+    pub fn last_index_of_one(&self) -> Option<usize> {
+        for (i, &bits) in self.cache.iter().enumerate().rev() {
+            if bits != 0 {
+                // 左から連続した0の個数を数える。63 - 0の個数が1のindexとなる
+                let zeros = bits.leading_zeros() as usize;
+                return Some((i * 64) + (63 - zeros));
+            }
+        }
+        None
+    }
 }
 
 #[cfg(test)]
@@ -112,5 +124,17 @@ mod tests {
             bit_cache.set(i);
         }
         assert_eq!(65536, bit_cache.find_empty_idx(65535));
+    }
+
+    #[test]
+    fn test_last_index_of_one() {
+        let mut bit_cache = BitCache::new();
+        assert_eq!(None, bit_cache.last_index_of_one());
+        bit_cache.set(0);
+        assert_eq!(Some(0), bit_cache.last_index_of_one());
+        bit_cache.set(63);
+        assert_eq!(Some(63), bit_cache.last_index_of_one());
+        bit_cache.set(300);
+        assert_eq!(Some(300), bit_cache.last_index_of_one());
     }
 }

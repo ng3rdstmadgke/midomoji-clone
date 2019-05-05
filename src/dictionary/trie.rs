@@ -161,6 +161,13 @@ impl<T: Clone> Trie<T> {
                 stack.push((i, n));
             }
         }
+        // 配列のリサイズ
+        let new_len = match bit_cache.last_index_of_one() {
+            None          => 256,
+            Some(new_len) => new_len + 256,
+        };
+        base_arr.resize(new_len, 0);
+        check_arr.resize(new_len, 0);
         (base_arr, check_arr, data_arr)
     }
 
