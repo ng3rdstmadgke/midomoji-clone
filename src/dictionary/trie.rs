@@ -130,21 +130,14 @@ impl<T: Clone> Trie<T> {
             stack.push((1, self.root));
         }
         while !stack.is_empty() {
-            let (curr_idx, node) = stack.pop().unwrap();
-            // base値を求める
-            let base: usize = if node.values.is_empty() {
-                Self::find_base(&node.nexts, &bit_cache, false)
-            } else {
-                let base = Self::find_base(&node.nexts, &bit_cache, true);
-                bit_cache.set(base);
-                // valuesの格納: baseには「24bit: dataのindex, 8bit: 長さ」を格納し、dataには末尾にvaluesを追加する
-                base_arr[base]  = ((data_arr.len() << 8) | node.values.len() & 0b11111111) as u32;
-                check_arr[base] = curr_idx as u32;
-                data_arr.extend_from_slice(&node.values);
-                base
-            };
+            let (curr_idx, mut node) = stack.pop().unwrap();
 
-            // base値をセット
+            // base値を探索・セット
+            if !node.values.is_empty() {
+                // valuesが存在する場合はkey=255のノードとして計算する
+                node.nexts.push(Node { key: u8::max_value(), values: vec![], nexts: vec![] });
+            }
+            let base: usize = Self::find_base(&node.nexts, &bit_cache);
             base_arr[curr_idx] = base as u32;
 
             // 配列の長さが足りなければ配列を拡張
@@ -159,7 +152,16 @@ impl<T: Clone> Trie<T> {
                 let i = base + (n.key as usize);
                 bit_cache.set(i);
                 check_arr[i] = curr_idx as u32;
-                stack.push((i, n));
+                if n.key == u8::max_value() {
+                    // valueノードの登録
+                    // baseには「24bit: dataのindex, 8bit: 長さ」を格納する
+                    base_arr[i]  = ((data_arr.len() << 8) | node.values.len() & 0b11111111) as u32;
+                    // dataには末尾にvaluesを追加する
+                    data_arr.extend_from_slice(&node.values);
+                } else {
+                    // 通常ノードの登録
+                    stack.push((i, n));
+                }
             }
         }
         // 配列のリサイズ
@@ -179,11 +181,11 @@ impl<T: Clone> Trie<T> {
     /// * `nodes`     - 追加対象のノード
     /// * `bit_cache` - BitCacheのインスタンス
     /// * `with_zero` - key=0のノードも考慮してbase値を探す
-    fn find_base(nodes: &[Node<T>], bit_cache: &BitCache, with_zero: bool) -> usize {
-        if !with_zero && nodes.is_empty() {
+    fn find_base(nodes: &[Node<T>], bit_cache: &BitCache) -> usize {
+        if nodes.is_empty() {
                 panic!("探索すべきノードがありません");
         }
-        let first_key = if with_zero { 0 } else { nodes[0].key as usize };
+        let first_key = nodes[0].key as usize;
         let mut offset = first_key;
         'outer: loop {
             let empty_idx = bit_cache.find_empty_idx(offset);
@@ -296,56 +298,34 @@ mod tests {
     #[test]
     fn test_find_base_1() {
         let nodes: Vec<Node<u32>> = vec![
-            Node::<u32> { key: 1, values: vec![], nexts: vec![] },
-            Node::<u32> { key: 2, values: vec![], nexts: vec![] },
-            Node::<u32> { key: 5, values: vec![], nexts: vec![] },
+            Node::<u32> { key: 1  , values: vec![], nexts: vec![] },
+            Node::<u32> { key: 2  , values: vec![], nexts: vec![] },
+            Node::<u32> { key: 5  , values: vec![], nexts: vec![] },
+            Node::<u32> { key: 255, values: vec![], nexts: vec![] },
         ];
         let mut bit_cache = BitCache::new();
 
         // 0~1が埋まっている。1, 2, 5を登録できるbase値は2
         bit_cache.set(0);
         bit_cache.set(1);
-        assert_eq!(1, Trie::find_base(&nodes, &bit_cache, false));
+        assert_eq!(1, Trie::find_base(&nodes, &bit_cache));
 
         // 0~1, 5~62が埋まっている。1, 2, 5を登録できるbase値は63
         for i in (5..63) { bit_cache.set(i); }
-        assert_eq!(62, Trie::find_base(&nodes, &bit_cache, false));
+        assert_eq!(62, Trie::find_base(&nodes, &bit_cache));
 
         // 0~1, 5~65535が埋まっている。1, 2, 5を登録できるbase値は65536
         for i in (63..65536) { bit_cache.set(i); }
-        assert_eq!(65535, Trie::find_base(&nodes, &bit_cache, false));
-    }
-
-    #[test]
-    fn test_find_base_2() {
-        let nodes: Vec<Node<u32>> = vec![
-            Node::<u32> { key: 1, values: vec![], nexts: vec![] },
-            Node::<u32> { key: 2, values: vec![], nexts: vec![] },
-            Node::<u32> { key: 5, values: vec![], nexts: vec![] },
-        ];
-        let mut bit_cache = BitCache::new();
-
-        // 0~1が埋まっている。0, 1, 2, 5を登録できるbase値は2
-        bit_cache.set(0);
-        bit_cache.set(1);
-        assert_eq!(2, Trie::find_base(&nodes, &bit_cache, true));
-
-        // 0~1, 5~62が埋まっている。0, 1, 2, 5を登録できるbase値は63
-        for i in (5..63) { bit_cache.set(i); }
-        assert_eq!(63, Trie::find_base(&nodes, &bit_cache, true));
-
-        // 0~1, 5~65535が埋まっている。0, 1, 2, 5を登録できるbase値は65536
-        for i in (63..65536) { bit_cache.set(i); }
-        assert_eq!(65536, Trie::find_base(&nodes, &bit_cache, true));
+        assert_eq!(65535, Trie::find_base(&nodes, &bit_cache));
     }
 
     #[test]
     #[should_panic("探索すべきノードがありません")]
-    fn test_find_base_3() {
+    fn test_find_base_2() {
         let nodes: Vec<Node<u32>> = vec![];
         let mut bit_cache = BitCache::new();
         // nodesが空でwith_zero=falseの場合は、base値を求められないのでpanic
-        Trie::find_base(&nodes, &bit_cache, false);
+        Trie::find_base(&nodes, &bit_cache);
     }
 
     #[test]
@@ -363,7 +343,7 @@ mod tests {
         trie.set(&s4, 5);
         trie.set(&s5, 6);
         let (base_arr, check_arr, data_arr) = trie.to_double_array(255);
-        //debug_double_array(&base_arr, &check_arr, &data_arr);
+        // debug_double_array(&base_arr, &check_arr, &data_arr);
         // 登録されていて、data_arrに値が存在するkeyは対応する値を返す
         assert_eq!([1, 2], find(&s1, &base_arr, &check_arr, &data_arr).unwrap());
         assert_eq!([3], find(&s2, &base_arr, &check_arr, &data_arr).unwrap());
@@ -434,9 +414,10 @@ mod tests {
                 );
             }
         }
-        if check_arr[base] as usize == idx {
-            let data_idx = (base_arr[base] >> 8) as usize;
-            let data_len = (base_arr[base] & 0b11111111) as usize;
+        let value_idx = base + (u8::max_value() as usize);
+        if check_arr[value_idx] as usize == idx {
+            let data_idx = (base_arr[value_idx] >> 8) as usize;
+            let data_len = (base_arr[value_idx] & 0b11111111) as usize;
             Some(&data_arr[data_idx..(data_idx + data_len)])
         } else {
             None
