@@ -5,6 +5,10 @@ pub struct BitCache {
 }
 
 impl BitCache {
+    const BIT_MASK: usize = 0b111111; // 63
+    const BIT_LEN: usize = 64;
+    const BIT_CNT: usize = 6;
+
     pub fn new() -> BitCache {
         BitCache { cache: vec![0; 1024] }
     }
@@ -16,8 +20,8 @@ impl BitCache {
     ///
     /// * `idx`- 調べたいindex
     pub fn get(&self, idx: usize) -> usize {
-        let arr_idx: usize = idx >> 6;       // idx / 64
-        let bit_idx: usize = idx & 0b111111; // idx % 64
+        let arr_idx: usize = idx >> Self::BIT_CNT; // idx / Self::BIT_LEN
+        let bit_idx: usize = idx & Self::BIT_MASK; // idx % Self::BIT_LEN
         if arr_idx < self.cache.len() {
             (self.cache[arr_idx] as usize) & (1 << bit_idx)
         } else {
@@ -31,8 +35,8 @@ impl BitCache {
     ///
     /// * `idx`- ビットを立てたいindex
     pub fn set(&mut self, idx: usize) {
-        let arr_idx: usize = idx >> 6;       // idx / 64
-        let bit_idx: usize = idx & 0b111111; // idx % 64
+        let arr_idx: usize = idx >> Self::BIT_CNT; // idx / Self::BIT_LEN
+        let bit_idx: usize = idx & Self::BIT_MASK; // idx % Self::BIT_LEN
         if arr_idx >= self.cache.len() {
             self.cache.resize(arr_idx * 2, 0);
         }
@@ -45,8 +49,8 @@ impl BitCache {
     ///
     /// * `offset`- 探索開始インデックス
     pub fn find_empty_idx(&self, offset: usize) -> usize {
-        let arr_idx: usize = offset >> 6;       // idx / 64
-        let bit_idx: usize = offset & 0b111111; // idx % 64
+        let arr_idx: usize = offset >> Self::BIT_CNT; // idx / Self::BIT_LEN
+        let bit_idx: usize = offset & Self::BIT_MASK; // idx % Self::BIT_LEN
         if arr_idx >= self.cache.len() {
             return offset;
         }
@@ -59,12 +63,25 @@ impl BitCache {
             if bits != 0 {
                 // 右から連続した0の個数を数える。0の個数が空のindexとなる
                 let zeros = bits.trailing_zeros() as usize;
-                return cnt * 64 + zeros;
+                return cnt * Self::BIT_LEN + zeros;
             }
             mask = -1;
             cnt += 1;
         }
-        self.cache.len() * 64
+        self.cache.len() * Self::BIT_LEN
+    }
+
+    /// cacheの中で一番最後に現れる1のindexを返す
+    pub fn last_index_of_one(&self) -> Option<usize> {
+        for (i, &bits) in self.cache.iter().enumerate().rev() {
+            if bits != 0 {
+                // 左から連続した0の個数を数える。
+                // (Self::BIT_LEN - (0の個数 + 1)) はビット内での1のindex
+                let zeros = bits.leading_zeros() as usize;
+                return Some((i * Self::BIT_LEN) + (Self::BIT_LEN - (zeros + 1)));
+            }
+        }
+        None
     }
 }
 
@@ -112,5 +129,17 @@ mod tests {
             bit_cache.set(i);
         }
         assert_eq!(65536, bit_cache.find_empty_idx(65535));
+    }
+
+    #[test]
+    fn test_last_index_of_one() {
+        let mut bit_cache = BitCache::new();
+        assert_eq!(None, bit_cache.last_index_of_one());
+        bit_cache.set(0);
+        assert_eq!(Some(0), bit_cache.last_index_of_one());
+        bit_cache.set(63);
+        assert_eq!(Some(63), bit_cache.last_index_of_one());
+        bit_cache.set(300);
+        assert_eq!(Some(300), bit_cache.last_index_of_one());
     }
 }

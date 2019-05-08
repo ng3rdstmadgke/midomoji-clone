@@ -11,10 +11,35 @@ impl MatrixBuilder {
         MatrixBuilder { matrix: vec![0; left_max * right_max], left_max, right_max }
     }
 
+    pub fn get_matrix(&self) -> &[u16] {
+        &self.matrix
+    }
+
+    pub fn get_left_max(&self) -> usize {
+        self.left_max
+    }
+
+    pub fn get_right_max(&self) -> usize {
+        self.right_max
+    }
+
+    /// 連接コスト表からコストを引く
+    ///
+    /// # Arguments
+    ///
+    /// * `left_id`  - 左文脈ID
+    /// * `right_id` - 右文脈ID
     pub fn get(&self, left_id: usize, right_id: usize) -> u16 {
         self.matrix[(left_id * self.right_max) + right_id]
     }
 
+    /// 連接コスト表に値をセットする
+    ///
+    /// # Arguments
+    ///
+    /// * `left_id`  - 左文脈ID
+    /// * `right_id` - 右文脈ID
+    /// * `cost`     - 連接コスト
     pub fn set(&mut self, left_id: usize, right_id: usize, cost: u16) {
         self.matrix[(left_id * self.right_max) + right_id] = cost;
     }
