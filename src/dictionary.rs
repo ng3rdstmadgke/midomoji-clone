@@ -217,6 +217,24 @@ impl<'a, T: Clone> DictionarySet<'a, T> {
     }
 }
 
+/*
+use std::iter::Iterator;
+struct PrefixSearchIter<'a, T> {
+    idx      : usize,
+    base_arr : &'a [u32],
+    check_arr: &'a [u32],
+    data_arr : &'a [T],
+}
+
+impl<'a, T> Iterator for PrefixSearchIter<'a, T>  {
+    type Item =  &'a [T];
+
+    fn next(&mut self) -> Option<&'a [T]> {
+        Some(&self.data_arr[0..1])
+    }
+}
+*/
+
 #[cfg(test)]
 mod tests {
     use super::*;
