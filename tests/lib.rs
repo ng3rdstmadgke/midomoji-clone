@@ -11,7 +11,7 @@ fn test_build_load_dictionary() {
     let mut builder: DictionaryBuilder<usize> = DictionaryBuilder::new(100, 100);
     for l in 0..100 {
         for r in 0..100 {
-            builder.set_matrix(l, r, (l as u16) * 100 + (r as u16));
+            builder.set_matrix(l, r, (l as i16) * 100 + (r as i16));
         }
     }
     // 単語登録
@@ -54,7 +54,7 @@ fn test_build_load_dictionary() {
     // 連接コスト表の探索
     for l in 0..100 {
         for r in 0..100 {
-            let cost = (l as u16) * 100 + (r as u16);
+            let cost = (l as i16) * 100 + (r as i16);
             assert_eq!(cost, dict_set.get_matrix(l, r));
         }
     }

@@ -12,6 +12,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::ptr;
 
+#[allow(dead_code)]
 pub struct DictionaryHeader {
     base_idx        : usize,
     check_idx       : usize,
@@ -55,7 +56,7 @@ impl<T: Clone> DictionaryBuilder<T> {
     /// * `left_id`  - 左文脈ID
     /// * `right_id` - 右文脈ID
     /// * `cost`     - 連接コスト
-    pub fn set_matrix(&mut self, left_id: usize, right_id: usize, cost: u16) {
+    pub fn set_matrix(&mut self, left_id: usize, right_id: usize, cost: i16) {
         self.matrix.set(left_id, right_id, cost);
     }
 
@@ -131,7 +132,7 @@ pub struct DictionarySet<'a, T: Clone> {
     base_arr : &'a [u32],
     check_arr: &'a [u32],
     data_arr : &'a [T],
-    matrix   : &'a [u16],
+    matrix   : &'a [i16],
 }
 
 impl<'a, T: Clone> DictionarySet<'a, T> {
@@ -166,9 +167,9 @@ impl<'a, T: Clone> DictionarySet<'a, T> {
         };
 
         // matrix
-        let matrix: &'a [u16] = unsafe {
+        let matrix: &'a [i16] = unsafe {
             slice::from_raw_parts(
-                bytes[header.matrix_idx..].as_ptr() as *const u16,
+                bytes[header.matrix_idx..].as_ptr() as *const i16,
                 header.matrix_len
             )
         };
@@ -212,7 +213,7 @@ impl<'a, T: Clone> DictionarySet<'a, T> {
     /// # Arguments
     ///
     /// * `key`       - 探索対象の文字列
-    pub fn get_matrix(&self, left_id: usize, right_id: usize) -> u16 {
+    pub fn get_matrix(&self, left_id: usize, right_id: usize) -> i16 {
         self.matrix[(left_id * self.header.matrix_right_max) + right_id]
     }
 }
