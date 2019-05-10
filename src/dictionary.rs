@@ -26,106 +26,6 @@ pub struct DictionaryHeader {
     matrix_right_max: usize,
 }
 
-pub struct DictionaryBuilder<T: Clone> {
-     trie: Trie<T>,
-     matrix: MatrixBuilder,
-}
-
-impl<T: Clone> DictionaryBuilder<T> {
-    pub fn new(left_max: usize, right_max: usize) -> DictionaryBuilder<T> {
-        DictionaryBuilder {
-            trie: Trie::new(),
-            matrix: MatrixBuilder::new(left_max, right_max),
-        }
-    }
-
-    /// トライ木にキーワードを登録する
-    ///
-    /// # Arguments
-    ///
-    /// * `key`   - 追加するキー
-    /// * `value` - キーに対応する値
-    pub fn set_trie(&mut self, key: &str, value: T) {
-        self.trie.set(key, value);
-    }
-
-    /// 連接コスト表に値をセットする
-    ///
-    /// # Arguments
-    ///
-    /// * `left_id`  - 左文脈ID
-    /// * `right_id` - 右文脈ID
-    /// * `cost`     - 連接コスト
-    pub fn set_matrix(&mut self, left_id: usize, right_id: usize, cost: i16) {
-        self.matrix.set(left_id, right_id, cost);
-    }
-
-    /// ダブル配列、連接コスト表をバイト列としてファイルに書き込む
-    ///
-    /// # Arguments
-    ///
-    /// * `output_path` - 出力するファイル
-    pub fn serialize(self, output_path: &str) -> io::Result<()> {
-        let (base_arr, check_arr, data_arr) = self.trie.to_double_array(65535);
-        // base_arr
-        let base_bytes: &[u8] = unsafe {
-            slice::from_raw_parts(
-                base_arr.as_ptr() as *const u8,
-                mem::size_of::<u32>() * base_arr.len()
-            )
-        };
-        // check_arr
-        let check_bytes: &[u8] = unsafe {
-            slice::from_raw_parts(
-                check_arr.as_ptr() as *const u8,
-                mem::size_of::<u32>() * check_arr.len()
-            )
-        };
-        // data_arr
-        let data_bytes: &[u8] = unsafe {
-            slice::from_raw_parts(
-                data_arr.as_ptr() as *const u8, 
-                mem::size_of::<T>() * data_arr.len()
-            )
-        };
-        // matrix
-        let matrix_bytes: &[u8] = unsafe {
-            slice::from_raw_parts(
-                self.matrix.get_matrix().as_ptr() as *const u8,
-                mem::size_of::<u16>() * self.matrix.get_matrix().len()
-            )
-        };
-        // dictionary_header
-        let header_size: usize = mem::size_of::<DictionaryHeader>();
-        let header = DictionaryHeader {
-            base_idx        : header_size,
-            check_idx       : header_size + base_bytes.len(),
-            data_idx        : header_size + base_bytes.len() + check_bytes.len(),
-            matrix_idx      : header_size + base_bytes.len() + check_bytes.len() + data_bytes.len(),
-            base_len        : base_arr.len(),
-            check_len       : check_arr.len(),
-            data_len        : data_arr.len(),
-            matrix_len      : self.matrix.get_matrix().len(),
-            matrix_left_max : self.matrix.get_left_max(),
-            matrix_right_max: self.matrix.get_right_max(),
-        };
-        let header_bytes: &[u8] = unsafe {
-            slice::from_raw_parts(
-                &header as *const DictionaryHeader as *const u8,
-                header_size,
-            )
-        };
-
-        let mut f = File::create(output_path)?;
-        f.write_all(header_bytes)?;
-        f.write_all(base_bytes)?;
-        f.write_all(check_bytes)?;
-        f.write_all(data_bytes)?;
-        f.write_all(matrix_bytes)?;
-        f.flush()?;
-        Ok(())
-    }
-}
 
 pub struct DictionarySet<'a, T: Clone> {
     header   : DictionaryHeader,
@@ -215,6 +115,71 @@ impl<'a, T: Clone> DictionarySet<'a, T> {
     /// * `key`       - 探索対象の文字列
     pub fn get_matrix(&self, left_id: usize, right_id: usize) -> i16 {
         self.matrix[(left_id * self.header.matrix_right_max) + right_id]
+    }
+
+    /// ダブル配列、連接コスト表をバイト列としてファイルに書き込む
+    ///
+    /// # Arguments
+    ///
+    /// * `output_path` - 出力するファイル
+    pub fn serialize(base_arr: &[u32], check_arr: &[u32], data_arr: &[T], matrix: MatrixBuilder, output_path: &str) -> io::Result<()> {
+        // base_arr
+        let base_bytes: &[u8] = unsafe {
+            slice::from_raw_parts(
+                base_arr.as_ptr() as *const u8,
+                mem::size_of::<u32>() * base_arr.len()
+            )
+        };
+        // check_arr
+        let check_bytes: &[u8] = unsafe {
+            slice::from_raw_parts(
+                check_arr.as_ptr() as *const u8,
+                mem::size_of::<u32>() * check_arr.len()
+            )
+        };
+        // data_arr
+        let data_bytes: &[u8] = unsafe {
+            slice::from_raw_parts(
+                data_arr.as_ptr() as *const u8,
+                mem::size_of::<T>() * data_arr.len()
+            )
+        };
+        // matrix
+        let matrix_bytes: &[u8] = unsafe {
+            slice::from_raw_parts(
+                matrix.get_matrix().as_ptr() as *const u8,
+                mem::size_of::<u16>() * matrix.get_matrix().len()
+            )
+        };
+        // dictionary_header
+        let header_size: usize = mem::size_of::<DictionaryHeader>();
+        let header = DictionaryHeader {
+            base_idx        : header_size,
+            check_idx       : header_size + base_bytes.len(),
+            data_idx        : header_size + base_bytes.len() + check_bytes.len(),
+            matrix_idx      : header_size + base_bytes.len() + check_bytes.len() + data_bytes.len(),
+            base_len        : base_arr.len(),
+            check_len       : check_arr.len(),
+            data_len        : data_arr.len(),
+            matrix_len      : matrix.get_matrix().len(),
+            matrix_left_max : matrix.get_left_max(),
+            matrix_right_max: matrix.get_right_max(),
+        };
+        let header_bytes: &[u8] = unsafe {
+            slice::from_raw_parts(
+                &header as *const DictionaryHeader as *const u8,
+                header_size,
+            )
+        };
+
+        let mut f = File::create(output_path)?;
+        f.write_all(header_bytes)?;
+        f.write_all(base_bytes)?;
+        f.write_all(check_bytes)?;
+        f.write_all(data_bytes)?;
+        f.write_all(matrix_bytes)?;
+        f.flush()?;
+        Ok(())
     }
 }
 

@@ -10,7 +10,7 @@ impl BitCache {
     const BIT_CNT: usize = 6;
 
     pub fn new() -> BitCache {
-        BitCache { cache: vec![0; 1024] }
+        BitCache { cache: vec![0; 32768] }
     }
 
     /// 指定されたインデックスを取得する

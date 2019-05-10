@@ -1,7 +1,9 @@
 extern crate csv;
 
-use midomoji_clone::token::Token;
 use midomoji_clone::dictionary::*;
+use midomoji_clone::dictionary::trie::Trie;
+use midomoji_clone::dictionary::matrix_builder::MatrixBuilder;
+use midomoji_clone::token::Token;
 use midomoji_clone::config::*;
 use midomoji_clone::util::*;
 
@@ -43,12 +45,14 @@ match config.mode {
 
 fn test(lex: String, matrix: String, dict: String) {
     // 辞書読み込み
+    let time = Timer::start();
     let file: File = File::open(&dict).ok().unwrap();
     let mmap: Mmap = unsafe {
         MmapOptions::new().map(&file).ok().unwrap()
     };
     let dict_set: DictionarySet<Token> = DictionarySet::new(&mmap);
     println!("load dictionary complete");
+    println!("{}", time.end());
 
     // matrix test
     let time = Timer::start();
@@ -109,10 +113,9 @@ fn test(lex: String, matrix: String, dict: String) {
     println!("{}", time.end());
 }
 
-// Err(Error::new(ErrorKind::InvalidData, "invalid format. left_max, right_max not found."));
 fn build(lex: String, matrix: String, output: String) {
-    let mut builder: DictionaryBuilder<Token> = DictionaryBuilder::new(0, 0);
-    
+    // Err(Error::new(ErrorKind::InvalidData, "invalid format. left_max, right_max not found."));
+    let mut matrix_builder = MatrixBuilder::new(0, 0);
     // header読み込み
     let time = Timer::start();
     {
@@ -122,7 +125,7 @@ fn build(lex: String, matrix: String, output: String) {
             let mut record = line.trim().split_whitespace();
             let left_max: usize  = record.next().unwrap().parse::<usize>().ok().unwrap();
             let right_max: usize = record.next().unwrap().parse::<usize>().ok().unwrap();
-            builder = DictionaryBuilder::new(left_max, right_max);
+            matrix_builder = MatrixBuilder::new(left_max, right_max);
             break;
         }
     }
@@ -141,7 +144,7 @@ fn build(lex: String, matrix: String, output: String) {
             let left_id: usize  = record.next().unwrap().parse::<usize>().ok().unwrap();
             let right_id: usize = record.next().unwrap().parse::<usize>().ok().unwrap();
             let cost: i16       = record.next().unwrap().parse::<i16>().ok().unwrap();
-            builder.set_matrix(left_id, right_id, cost);
+            matrix_builder.set(left_id, right_id, cost);
         }
     }
     println!("build matrix complete");
@@ -149,6 +152,7 @@ fn build(lex: String, matrix: String, output: String) {
 
     // 形態素辞書構築
     let time = Timer::start();
+    let mut trie: Trie<Token> = Trie::new();
     {
         let mut lex_reader = csv::Reader::from_reader(File::open(lex).ok().unwrap());
         for result in lex_reader.records() {
@@ -159,15 +163,20 @@ fn build(lex: String, matrix: String, output: String) {
                 right_id: record[2].parse::<u16>().ok().unwrap(),
                 cost    : record[3].parse::<i16>().ok().unwrap(),
             };
-            builder.set_trie(lex, token);
+            trie.set(lex, token);
         }
     }
     println!("build trie complete");
     println!("{}", time.end());
 
+    let time = Timer::start();
+    let (base_arr, check_arr, data_arr) = trie.to_double_array(2097152);
+    println!("build double_array complete");
+    println!("{}", time.end());
+
     // 辞書の書き込み
     let time = Timer::start();
-    builder.serialize(&output).ok().unwrap();
-    println!("build dictionary complete");
+    DictionarySet::serialize(&base_arr, &check_arr, &data_arr, matrix_builder, &output).ok().unwrap();
+    println!("serialize dictionary complete");
     println!("{}", time.end());
 }
