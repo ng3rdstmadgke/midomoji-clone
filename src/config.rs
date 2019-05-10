@@ -20,6 +20,9 @@ pub enum Mode {
         matrix: String,
         dict  : String,
     },
+    Bench {
+        lex   : String,
+    },
 }
 
 pub struct Config {
@@ -58,6 +61,10 @@ impl Config {
                     let matrix = args.next().ok_or("<MATRIX_PATH> not found")?;
                     let dict   = args.next().ok_or("<DICT_PATH> not found")?;
                     config.mode = Some(Mode::Test { lex, matrix, dict });
+                    Self::parse(args, config)
+                } else if arg_str == "--bench" {
+                    let lex = args.next().ok_or("<LEX_PATH> not found")?;
+                    config.mode = Some(Mode::Bench { lex });
                     Self::parse(args, config)
                 } else {
                     Err("invalid args")

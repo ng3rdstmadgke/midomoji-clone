@@ -36,11 +36,41 @@ match config.mode {
             test(lex, matrix, dict);
             println!("test complete");
         },
+        Some(Mode::Bench { lex }) => {
+            bench(lex);
+            println!("test complete");
+        },
         None => {
             eprintln!("mode not found");
             process::exit(1);
         }
     }
+}
+
+fn bench(lex: String) {
+    // 形態素辞書構築
+    let time = Timer::start();
+    let mut trie: Trie<Token> = Trie::new();
+    {
+        let mut lex_reader = csv::Reader::from_reader(File::open(lex).ok().unwrap());
+        for result in lex_reader.records() {
+            let record = result.ok().unwrap();
+            let lex = &record[0];
+            let token = Token {
+                left_id : record[1].parse::<u16>().ok().unwrap(),
+                right_id: record[2].parse::<u16>().ok().unwrap(),
+                cost    : record[3].parse::<i16>().ok().unwrap(),
+            };
+            trie.set(lex, token);
+        }
+    }
+    println!("build trie complete");
+    println!("{}", time.end());
+
+    let time = Timer::start();
+    trie.to_double_array(2097152);
+    println!("build double_array complete");
+    println!("{}", time.end());
 }
 
 fn test(lex: String, matrix: String, dict: String) {
