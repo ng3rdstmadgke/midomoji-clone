@@ -48,8 +48,9 @@ match config.mode {
 }
 
 fn bench(lex: String) {
+    let mut timer = Timer::new();
     // 形態素辞書構築
-    let time = Timer::start();
+    timer.start();
     let mut trie: Trie<Token> = Trie::new();
     {
         let mut lex_reader = csv::Reader::from_reader(File::open(lex).ok().unwrap());
@@ -65,27 +66,33 @@ fn bench(lex: String) {
         }
     }
     println!("build trie complete");
-    println!("{}", time.end());
+    timer.stop();
+    timer.print();
 
-    let time = Timer::start();
+    timer.reset();
+    timer.start();
     trie.to_double_array(2097152);
     println!("build double_array complete");
-    println!("{}", time.end());
+    timer.stop();
+    timer.print();
 }
 
 fn test(lex: String, matrix: String, dict: String) {
+    let mut timer = Timer::new();
     // 辞書読み込み
-    let time = Timer::start();
+    timer.start();
     let file: File = File::open(&dict).ok().unwrap();
     let mmap: Mmap = unsafe {
         MmapOptions::new().map(&file).ok().unwrap()
     };
     let dict_set: DictionarySet<Token> = DictionarySet::new(&mmap);
     println!("load dictionary complete");
-    println!("{}", time.end());
+    timer.stop();
+    timer.print();
 
     // matrix test
-    let time = Timer::start();
+    timer.reset();
+    timer.start();
     {
         let matrix_reader: BufReader<File> = BufReader::new(File::open(&matrix).ok().unwrap());
         let mut lines = matrix_reader.lines();
@@ -108,10 +115,12 @@ fn test(lex: String, matrix: String, dict: String) {
         }
     }
     println!("test matrix complete");
-    println!("{}", time.end());
+    timer.stop();
+    timer.print();
 
     // trie test
-    let time = Timer::start();
+    timer.reset();
+    timer.start();
     {
         let mut lex_reader = csv::Reader::from_reader(File::open(lex).ok().unwrap());
         for result in lex_reader.records() {
@@ -140,14 +149,16 @@ fn test(lex: String, matrix: String, dict: String) {
         }
     }
     println!("test trie complete");
-    println!("{}", time.end());
+    timer.stop();
+    timer.print();
 }
 
 fn build(lex: String, matrix: String, output: String) {
+    let mut timer = Timer::new();
     // Err(Error::new(ErrorKind::InvalidData, "invalid format. left_max, right_max not found."));
     let mut matrix_builder = MatrixBuilder::new(0, 0);
     // header読み込み
-    let time = Timer::start();
+    timer.start();
     {
         let matrix_reader: BufReader<File> = BufReader::new(File::open(&matrix).ok().unwrap());
         for result in matrix_reader.lines() {
@@ -160,10 +171,12 @@ fn build(lex: String, matrix: String, output: String) {
         }
     }
     println!("build header complete");
-    println!("{}", time.end());
+    timer.stop();
+    timer.print();
 
     // matrix構築
-    let time = Timer::start();
+    timer.reset();
+    timer.start();
     {
         let matrix_reader: BufReader<File> = BufReader::new(File::open(&matrix).ok().unwrap());
         let mut lines = matrix_reader.lines();
@@ -178,10 +191,12 @@ fn build(lex: String, matrix: String, output: String) {
         }
     }
     println!("build matrix complete");
-    println!("{}", time.end());
+    timer.stop();
+    timer.print();
 
     // 形態素辞書構築
-    let time = Timer::start();
+    timer.reset();
+    timer.start();
     let mut trie: Trie<Token> = Trie::new();
     {
         let mut lex_reader = csv::Reader::from_reader(File::open(lex).ok().unwrap());
@@ -197,16 +212,21 @@ fn build(lex: String, matrix: String, output: String) {
         }
     }
     println!("build trie complete");
-    println!("{}", time.end());
+    timer.stop();
+    timer.print();
 
-    let time = Timer::start();
+    timer.reset();
+    timer.start();
     let (base_arr, check_arr, data_arr) = trie.to_double_array(2097152);
     println!("build double_array complete");
-    println!("{}", time.end());
+    timer.stop();
+    timer.print();
 
     // 辞書の書き込み
-    let time = Timer::start();
+    timer.reset();
+    timer.start();
     DictionarySet::serialize(&base_arr, &check_arr, &data_arr, matrix_builder, &output).ok().unwrap();
     println!("serialize dictionary complete");
-    println!("{}", time.end());
+    timer.stop();
+    timer.print();
 }

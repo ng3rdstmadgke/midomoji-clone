@@ -1,16 +1,35 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub struct Timer {
-    instant: Instant,
+    instant: Option<Instant>,
+    duration: Duration
 }
 
 impl Timer {
-    pub fn start() -> Timer {
-        Timer { instant: Instant::now() }
+    pub fn new() -> Timer {
+        Timer {
+            instant: None,
+            duration: Duration::new(0, 0),
+        }
     }
 
-    pub fn end(&self) -> String {
-        let end = self.instant.elapsed();
-        format!("{}.{:03} sec", end.as_secs(), end.subsec_nanos() / 1_000_000)
+    pub fn start(&mut self) {
+        self.instant = Some(Instant::now());
+    }
+
+    pub fn stop(&mut self) {
+        if let Some(instant) = self.instant {
+            self.duration += instant.elapsed();
+        }
+        self.instant  = None;
+    }
+
+    pub fn reset(&mut self) {
+        self.instant = None;
+        self.duration = Duration::new(0, 0);
+    }
+
+    pub fn print(&self) {
+        println!("{:?}", self.duration)
     }
 }
