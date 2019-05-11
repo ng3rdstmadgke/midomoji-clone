@@ -2,9 +2,9 @@ pub mod trie;
 pub mod matrix_builder;
 mod bit_cache;
 
-use self::trie::Trie;
 use self::matrix_builder::MatrixBuilder;
 
+use std::fmt::Debug;
 use std::slice;
 use std::mem;
 use std::io;
@@ -12,6 +12,7 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::ptr;
 
+#[allow(dead_code)]
 pub struct DictionaryHeader {
     base_idx        : usize,
     check_idx       : usize,
@@ -25,116 +26,16 @@ pub struct DictionaryHeader {
     matrix_right_max: usize,
 }
 
-pub struct DictionaryBuilder<T: Clone> {
-     trie: Trie<T>,
-     matrix: MatrixBuilder,
-}
 
-impl<T: Clone> DictionaryBuilder<T> {
-    pub fn new(left_max: usize, right_max: usize) -> DictionaryBuilder<T> {
-        DictionaryBuilder {
-            trie: Trie::new(),
-            matrix: MatrixBuilder::new(left_max, right_max),
-        }
-    }
-
-    /// トライ木にキーワードを登録する
-    ///
-    /// # Arguments
-    ///
-    /// * `key`   - 追加するキー
-    /// * `value` - キーに対応する値
-    pub fn set_trie(&mut self, key: &str, value: T) {
-        self.trie.set(key, value);
-    }
-
-    /// 連接コスト表に値をセットする
-    ///
-    /// # Arguments
-    ///
-    /// * `left_id`  - 左文脈ID
-    /// * `right_id` - 右文脈ID
-    /// * `cost`     - 連接コスト
-    pub fn set_matrix(&mut self, left_id: usize, right_id: usize, cost: u16) {
-        self.matrix.set(left_id, right_id, cost);
-    }
-
-    /// ダブル配列、連接コスト表をバイト列としてファイルに書き込む
-    ///
-    /// # Arguments
-    ///
-    /// * `output_path` - 出力するファイル
-    pub fn serialize(self, output_path: &str) -> io::Result<()> {
-        let (base_arr, check_arr, data_arr) = self.trie.to_double_array(65535);
-        // base_arr
-        let base_bytes: &[u8] = unsafe {
-            slice::from_raw_parts(
-                base_arr.as_ptr() as *const u8,
-                mem::size_of::<u32>() * base_arr.len()
-            )
-        };
-        // check_arr
-        let check_bytes: &[u8] = unsafe {
-            slice::from_raw_parts(
-                check_arr.as_ptr() as *const u8,
-                mem::size_of::<u32>() * check_arr.len()
-            )
-        };
-        // data_arr
-        let data_bytes: &[u8] = unsafe {
-            slice::from_raw_parts(
-                data_arr.as_ptr() as *const u8, 
-                mem::size_of::<T>() * data_arr.len()
-            )
-        };
-        // matrix
-        let matrix_bytes: &[u8] = unsafe {
-            slice::from_raw_parts(
-                self.matrix.get_matrix().as_ptr() as *const u8,
-                mem::size_of::<u16>() * self.matrix.get_matrix().len()
-            )
-        };
-        // dictionary_header
-        let header_size: usize = mem::size_of::<DictionaryHeader>();
-        let header = DictionaryHeader {
-            base_idx        : header_size,
-            check_idx       : header_size + base_bytes.len(),
-            data_idx        : header_size + base_bytes.len() + check_bytes.len(),
-            matrix_idx      : header_size + base_bytes.len() + check_bytes.len() + data_bytes.len(),
-            base_len        : base_arr.len(),
-            check_len       : check_arr.len(),
-            data_len        : data_arr.len(),
-            matrix_len      : self.matrix.get_matrix().len(),
-            matrix_left_max : self.matrix.get_left_max(),
-            matrix_right_max: self.matrix.get_right_max(),
-        };
-        let header_bytes: &[u8] = unsafe {
-            slice::from_raw_parts(
-                &header as *const DictionaryHeader as *const u8,
-                header_size,
-            )
-        };
-
-        let mut f = File::create(output_path)?;
-        f.write_all(header_bytes)?;
-        f.write_all(base_bytes)?;
-        f.write_all(check_bytes)?;
-        f.write_all(data_bytes)?;
-        f.write_all(matrix_bytes)?;
-        f.flush()?;
-        Ok(())
-    }
-}
-
-pub struct DictionarySet<'a, T: Clone> {
+pub struct DictionarySet<'a, T: Copy + Debug> {
     header   : DictionaryHeader,
     base_arr : &'a [u32],
     check_arr: &'a [u32],
     data_arr : &'a [T],
-    matrix   : &'a [u16],
+    matrix   : &'a [i16],
 }
 
-impl<'a, T: Clone> DictionarySet<'a, T> {
+impl<'a, T: Copy + Debug> DictionarySet<'a, T> {
     pub fn new(bytes: &[u8]) -> DictionarySet<'a, T> {
         // header
         let header: DictionaryHeader = unsafe {
@@ -166,9 +67,9 @@ impl<'a, T: Clone> DictionarySet<'a, T> {
         };
 
         // matrix
-        let matrix: &'a [u16] = unsafe {
+        let matrix: &'a [i16] = unsafe {
             slice::from_raw_parts(
-                bytes[header.matrix_idx..].as_ptr() as *const u16,
+                bytes[header.matrix_idx..].as_ptr() as *const i16,
                 header.matrix_len
             )
         };
@@ -212,8 +113,107 @@ impl<'a, T: Clone> DictionarySet<'a, T> {
     /// # Arguments
     ///
     /// * `key`       - 探索対象の文字列
-    pub fn get_matrix(&self, left_id: usize, right_id: usize) -> u16 {
+    pub fn get_matrix(&self, left_id: usize, right_id: usize) -> i16 {
         self.matrix[(left_id * self.header.matrix_right_max) + right_id]
+    }
+
+    /// ダブル配列、連接コスト表をバイト列としてファイルに書き込む
+    ///
+    /// # Arguments
+    ///
+    /// * `output_path` - 出力するファイル
+    pub fn serialize(base_arr: &[u32], check_arr: &[u32], data_arr: &[T], matrix: MatrixBuilder, output_path: &str) -> io::Result<()> {
+        // base_arr
+        let base_bytes: &[u8] = unsafe {
+            slice::from_raw_parts(
+                base_arr.as_ptr() as *const u8,
+                mem::size_of::<u32>() * base_arr.len()
+            )
+        };
+        // check_arr
+        let check_bytes: &[u8] = unsafe {
+            slice::from_raw_parts(
+                check_arr.as_ptr() as *const u8,
+                mem::size_of::<u32>() * check_arr.len()
+            )
+        };
+        // data_arr
+        let data_bytes: &[u8] = unsafe {
+            slice::from_raw_parts(
+                data_arr.as_ptr() as *const u8,
+                mem::size_of::<T>() * data_arr.len()
+            )
+        };
+        // matrix
+        let matrix_bytes: &[u8] = unsafe {
+            slice::from_raw_parts(
+                matrix.get_matrix().as_ptr() as *const u8,
+                mem::size_of::<u16>() * matrix.get_matrix().len()
+            )
+        };
+        // dictionary_header
+        let header_size: usize = mem::size_of::<DictionaryHeader>();
+        let header = DictionaryHeader {
+            base_idx        : header_size,
+            check_idx       : header_size + base_bytes.len(),
+            data_idx        : header_size + base_bytes.len() + check_bytes.len(),
+            matrix_idx      : header_size + base_bytes.len() + check_bytes.len() + data_bytes.len(),
+            base_len        : base_arr.len(),
+            check_len       : check_arr.len(),
+            data_len        : data_arr.len(),
+            matrix_len      : matrix.get_matrix().len(),
+            matrix_left_max : matrix.get_left_max(),
+            matrix_right_max: matrix.get_right_max(),
+        };
+        let header_bytes: &[u8] = unsafe {
+            slice::from_raw_parts(
+                &header as *const DictionaryHeader as *const u8,
+                header_size,
+            )
+        };
+
+        let mut f = File::create(output_path)?;
+        f.write_all(header_bytes)?;
+        f.write_all(base_bytes)?;
+        f.write_all(check_bytes)?;
+        f.write_all(data_bytes)?;
+        f.write_all(matrix_bytes)?;
+        f.flush()?;
+        Ok(())
+    }
+
+    /// ダブル配列をデバッグ目的で表示するための関数
+    pub fn debug_double_array(&self, len: usize) {
+        let base_arr = self.base_arr;
+        let check_arr = self.check_arr;
+        let data_arr = self.data_arr;
+        println!("size: base={}, check={}, data={}", base_arr.len(), check_arr.len(), data_arr.len());
+        println!("{:-10} | {:-10} | {:-10} |", "index", "base", "check");
+        println!("{:-10} | {:-10} | {:-10} |", 0, base_arr[0], check_arr[0]);
+        println!("{:-10} | {:-10} | {:-10} |", 1, base_arr[1], check_arr[1]);
+        for i in 2..len {
+            let check = check_arr[i];
+            if  check != 0 {
+                if i == base_arr[check as usize] as usize {
+                    let data_idx = (base_arr[i] >> 8) as usize;
+                    let data_len = (base_arr[i] & 0b11111111) as usize;
+                    println!(
+                        "{:-10} | {:-10} | {:-10} | {:?}",
+                        i,
+                        base_arr[i],
+                        check_arr[i],
+                        &data_arr[data_idx..(data_idx + data_len)],
+                        );
+                } else {
+                    println!(
+                        "{:-10} | {:-10} | {:-10} |",
+                        i,
+                        base_arr[i],
+                        check_arr[i],
+                        );
+                }
+            }
+        }
     }
 }
 

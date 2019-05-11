@@ -1,6 +1,8 @@
 extern crate midomoji_clone;
 
 use midomoji_clone::dictionary::*;
+use midomoji_clone::dictionary::trie::Trie;
+use midomoji_clone::dictionary::matrix_builder::MatrixBuilder;
 use memmap::*;
 use std::fs::File;
 
@@ -8,13 +10,14 @@ use std::fs::File;
 fn test_build_load_dictionary() {
     // --- --- --- 構築 --- --- ---
     // 連接コスト登録
-    let mut builder: DictionaryBuilder<usize> = DictionaryBuilder::new(100, 100);
+    let mut matrix_builder = MatrixBuilder::new(100, 100);
     for l in 0..100 {
         for r in 0..100 {
-            builder.set_matrix(l, r, (l as u16) * 100 + (r as u16));
+            matrix_builder.set(l, r, (l as i16) * 100 + (r as i16));
         }
     }
     // 単語登録
+    let mut trie: Trie<usize> = Trie::new();
     let words: Vec<String> = vec![
         String::from("abc"),
         String::from("abc"),
@@ -26,11 +29,14 @@ fn test_build_load_dictionary() {
         String::from("🍣🍺"),
     ];
     for (i, w) in words.into_iter().enumerate() {
-        builder.set_trie(&w, i);
+        trie.set(&w, i);
     }
 
+    // ダブル配列構築
+    let (base_arr, check_arr, data_arr) = trie.to_double_array();
+
     // 辞書書き込み
-    builder.serialize("tests/test.dic").ok().unwrap();
+    DictionarySet::serialize(&base_arr, &check_arr, &data_arr, matrix_builder, "tests/test.dic").ok().unwrap();
 
     // --- --- --- 読み込み --- --- ---
     // 辞書読み込み
@@ -54,7 +60,7 @@ fn test_build_load_dictionary() {
     // 連接コスト表の探索
     for l in 0..100 {
         for r in 0..100 {
-            let cost = (l as u16) * 100 + (r as u16);
+            let cost = (l as i16) * 100 + (r as i16);
             assert_eq!(cost, dict_set.get_matrix(l, r));
         }
     }

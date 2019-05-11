@@ -2,6 +2,7 @@
 /// 0: 空, 1: 空でない
 pub struct BitCache {
     cache: Vec<i64>,
+    start: usize,
 }
 
 impl BitCache {
@@ -10,7 +11,28 @@ impl BitCache {
     const BIT_CNT: usize = 6;
 
     pub fn new() -> BitCache {
-        BitCache { cache: vec![0; 1024] }
+        BitCache {
+            cache: vec![0; 65535],
+            start: 4, // utf8想定なので256 / 64
+        }
+    }
+
+    /*
+    pub fn debug_print(&self) {
+        println!("start = {}", self.start);
+    }
+    */
+
+    /// 配列の空き状態を見て探索開始indexを進める
+    pub fn update_start(&mut self) {
+        for &bits in &self.cache[self.start..] {
+            if bits.count_ones() >= 60 {
+                // 95%以上埋まっていたらstart位置を進める
+                self.start += 1;
+            } else {
+                break;
+            }
+        }
     }
 
     /// 指定されたインデックスを取得する
@@ -49,10 +71,10 @@ impl BitCache {
     ///
     /// * `offset`- 探索開始インデックス
     pub fn find_empty_idx(&self, offset: usize) -> usize {
-        let arr_idx: usize = offset >> Self::BIT_CNT; // idx / Self::BIT_LEN
+        let arr_idx: usize = self.start + (offset >> Self::BIT_CNT); // idx / Self::BIT_LEN
         let bit_idx: usize = offset & Self::BIT_MASK; // idx % Self::BIT_LEN
         if arr_idx >= self.cache.len() {
-            return offset;
+            return offset + self.start * 64;
         }
         // offset よりも前のビットを0埋めするためのマスク
         let mut mask: i64 = -1 << bit_idx;
@@ -94,41 +116,42 @@ mod tests {
         let mut bit_cache = BitCache::new();
         bit_cache.set(0);
         bit_cache.set(100);
-        bit_cache.set(100000);
+        bit_cache.set(100000000);
         // セットしたindexが登録されている
         assert_eq!(false, bit_cache.get(0) == 0);
         assert_eq!(false, bit_cache.get(100) == 0);
-        assert_eq!(false, bit_cache.get(100000) == 0);
+        assert_eq!(false, bit_cache.get(100000000) == 0);
         // セットしていないindexは登録されていない
         assert_eq!(true, bit_cache.get(1000000) == 0);
     }
 
     #[test]
-    fn test_find_empty_idx_1() {
+    fn test_find_empty_idx() {
         let mut bit_cache = BitCache::new();
-        for i in (1..65) {
-            bit_cache.set(i);
-        }
-        for i in (66..300) {
-            bit_cache.set(i);
-        }
-        // 0番目は空いているので0
-        assert_eq!(0     , bit_cache.find_empty_idx(0));
-        // 1~64番目までは埋まっているので65
-        assert_eq!(65    , bit_cache.find_empty_idx(1));
-        // 66~299番目までは埋まっているので300
-        assert_eq!(300   , bit_cache.find_empty_idx(66));
-        // 100000番目は配列に存在しないので空いていることになる
-        assert_eq!(100000, bit_cache.find_empty_idx(100000));
-    }
+        // 探索開始位置=256。最初に見つかる空きノードは256
+        assert_eq!(256, bit_cache.find_empty_idx(0));
 
-    #[test]
-    fn test_find_empty_idx_2() {
-        let mut bit_cache = BitCache::new();
-        for i in (0..65536) {
-            bit_cache.set(i);
+        for i in (0..1000) {
+            if i % 100 != 0 {
+                bit_cache.set(i);
+            }
         }
-        assert_eq!(65536, bit_cache.find_empty_idx(65535));
+        // 探索開始位置=256。最初に見つかる空きノードは300
+        assert_eq!(300, bit_cache.find_empty_idx(0));
+
+        // 探索開始位置=960。最初に見つかる空きノードは1000
+        bit_cache.update_start();
+        assert_eq!(1000, bit_cache.find_empty_idx(0));
+
+        // 探索開始位置=960、オフセット=50なので最初に見つかる空きノードは1010になる
+        // 探索開始位置=960。オフセット=50。最初に見つかる空きノードは1010
+        assert_eq!(1010, bit_cache.find_empty_idx(50));
+
+        // 探索開始位置=960。オフセット=1000000。最初に見つかる空きノードは1000960
+        assert_eq!(1000960, bit_cache.find_empty_idx(1000000));
+
+        // 探索開始位置=960。オフセット=10000000。配列の範囲外なので空きノードは1000960
+        assert_eq!(10000960, bit_cache.find_empty_idx(10000000));
     }
 
     #[test]

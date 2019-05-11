@@ -1,5 +1,16 @@
+#[derive(Debug, Clone, Copy)]
 pub struct Token {
-    left_id : u16,
-    right_id: u16,
-    cost    : i16,
+    pub left_id : u16,
+    pub right_id: u16,
+    pub cost    : i16,
 }
+
+impl PartialEq for Token {
+    fn eq(&self, other: &Token) -> bool {
+        self.left_id == other.left_id && 
+        self.right_id == other.right_id &&
+        self.cost == other.cost
+    }
+}
+
+impl Eq for Token {}
