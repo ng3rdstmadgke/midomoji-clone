@@ -2,7 +2,6 @@ pub mod trie;
 pub mod matrix_builder;
 mod bit_cache;
 
-use self::trie::Trie;
 use self::matrix_builder::MatrixBuilder;
 
 use std::slice;
@@ -27,7 +26,7 @@ pub struct DictionaryHeader {
 }
 
 
-pub struct DictionarySet<'a, T: Clone> {
+pub struct DictionarySet<'a, T: Copy> {
     header   : DictionaryHeader,
     base_arr : &'a [u32],
     check_arr: &'a [u32],
@@ -35,7 +34,7 @@ pub struct DictionarySet<'a, T: Clone> {
     matrix   : &'a [i16],
 }
 
-impl<'a, T: Clone> DictionarySet<'a, T> {
+impl<'a, T: Copy> DictionarySet<'a, T> {
     pub fn new(bytes: &[u8]) -> DictionarySet<'a, T> {
         // header
         let header: DictionaryHeader = unsafe {
