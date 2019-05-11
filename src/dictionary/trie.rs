@@ -30,15 +30,12 @@ impl<T: Copy> Trie<T> {
     pub fn set(&mut self, key: &str, value: T) {
         let mut node = &mut self.root;
         for &k in key.as_bytes() {
-           match Self::binary_search(k, &node.nexts) {
-               None    => {
-                   node.nexts.push(Node { key: k, values: Vec::new(), nexts: Vec::new() });
-                   let i = Self::sort(&mut node.nexts);
-                   node = &mut node.nexts[i];
-               },
-               Some(i) => {
-                   node = &mut node.nexts[i];
-               },
+           if let Some(i) = Self::binary_search(k, &node.nexts) {
+               node = &mut node.nexts[i];
+           } else {
+               node.nexts.push(Node { key: k, values: Vec::new(), nexts: Vec::new() });
+               let i = Self::sort(&mut node.nexts);
+               node = &mut node.nexts[i];
            }
         }
         if node.values.len() < 256 {
@@ -74,9 +71,10 @@ impl<T: Copy> Trie<T> {
     pub fn get(&self, key: &str) -> Option<&[T]> {
         let mut node = &self.root;
         for &k in key.as_bytes() {
-           match Self::binary_search(k, &node.nexts) {
-               None    => return None ,
-               Some(i) => node = &node.nexts[i],
+            if let Some(i) =  Self::binary_search(k, &node.nexts) {
+                node = &node.nexts[i];
+            } else {
+               return None;
            }
         }
         if node.values.is_empty() {
