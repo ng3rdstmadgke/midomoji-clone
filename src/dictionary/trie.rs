@@ -1,18 +1,22 @@
 use crate::dictionary::bit_cache::BitCache;
 
-struct Node<T: Clone> {
+struct Node<T: Copy> {
     key   : u8,
     values: Vec<T>,
     nexts : Vec<Node<T>>,
 }
 
-pub struct Trie<T: Clone> {
+pub struct Trie<T: Copy> {
     root: Node<T>,
+    len: usize,
 }
 
-impl<T: Clone> Trie<T> {
+impl<T: Copy> Trie<T> {
     pub fn new() -> Trie<T> {
-        Trie { root: Node { key: 0, values: Vec::new(), nexts: Vec::new() }}
+        Trie {
+            root: Node { key: 0, values: Vec::new(), nexts: Vec::new() },
+            len: 0,
+        }
     }
 
     /// trieにノードを追加する
@@ -38,6 +42,7 @@ impl<T: Clone> Trie<T> {
            }
         }
         if node.values.len() < 256 {
+            self.len += 1;
             node.values.push(value);
         } else {
             panic!("登録できる値は1つのkeyに256個までです。")
@@ -116,27 +121,30 @@ impl<T: Clone> Trie<T> {
     /// # Arguments
     ///
     /// * `len` - ダブル配列の初期サイズ
-    pub fn to_double_array(self, mut len: usize) -> (Vec<u32>, Vec<u32>, Vec<T>) {
+    pub fn to_double_array(self) -> (Vec<u32>, Vec<u32>, Vec<T>) {
         let max_key = u8::max_value() as usize + 1;      // keyが取りうる値のパターン
-        len = if max_key >= len { max_key } else { len };
-        let mut base_arr: Vec<u32> = vec![0; len];
+        let mut len = if max_key > (4 * self.len) { max_key } else { 4 * self.len };
+        let mut base_arr: Vec<u32>  = vec![0; len];
         let mut check_arr: Vec<u32> = vec![0; len];
-        let mut data_arr: Vec<T> = vec![];
+        let mut data_arr: Vec<T>    = Vec::with_capacity(self.len);
         let mut bit_cache: BitCache = BitCache::new();
         bit_cache.set(0);
         bit_cache.set(1);
-        let mut stack: Vec<(usize, Node<T>)> = vec![];
+        let mut stack: Vec<(usize, Node<T>)> = Vec::with_capacity(self.len);
         if !self.root.nexts.is_empty() {
             stack.push((1, self.root));
         }
+
         while !stack.is_empty() {
             let (curr_idx, mut node) = stack.pop().unwrap();
+            bit_cache.update_start();
 
             // base値を探索・セット
             if !node.values.is_empty() {
                 // valuesが存在する場合はkey=255のノードとして計算する
                 node.nexts.push(Node { key: u8::max_value(), values: vec![], nexts: vec![] });
             }
+
             let base: usize = Self::find_base(&node.nexts, &bit_cache);
             base_arr[curr_idx] = base as u32;
 
@@ -164,7 +172,8 @@ impl<T: Clone> Trie<T> {
                 }
             }
         }
-        // 配列のリサイズ
+
+        // 配列のりサイズ
         let new_len = match bit_cache.last_index_of_one() {
             None          => max_key,
             Some(new_len) => new_len + max_key,
@@ -186,15 +195,18 @@ impl<T: Clone> Trie<T> {
                 panic!("探索すべきノードがありません");
         }
         let first_key = nodes[0].key as usize;
-        let mut offset = first_key;
+        let mut offset = 0;
         'outer: loop {
             let empty_idx = bit_cache.find_empty_idx(offset);
-            let new_base =  empty_idx - first_key;
+            let new_base = empty_idx - first_key;
+            if empty_idx < 256 {
+                panic!("empty_idx={}, first_key={}", empty_idx, first_key);
+            }
             // すべてのノードが重複せずに配置できるかをチェック
             'inner: for next in nodes {
                 if bit_cache.get(new_base + next.key as usize) != 0 {
                     // 空じゃなかった場合はnew_baseを探すとこからやり直し
-                    offset = empty_idx + 1;
+                    offset += 1;
                     continue 'outer;
                 }
             }
@@ -255,23 +267,22 @@ mod tests {
 
     #[test]
     fn test_trie_2() {
-        let mut trie: Trie<String> = Trie::new();
+        let mut trie: Trie<u32> = Trie::new();
         let s1 = String::from("abc");
         let s2 = String::from("abd");
         let s3 = String::from("zyx");
         let s4 = String::from("zwx");
-        trie.set(&s1, String::from("abc"));
-        trie.set(&s2, String::from("abd"));
-        trie.set(&s3, String::from("zyx"));
-        trie.set(&s4, String::from("zwx"));
-        trie.set(&s1, String::from("abc"));
+        trie.set(&s1, 10);
+        trie.set(&s2, 11);
+        trie.set(&s3, 12);
+        trie.set(&s4, 13);
+        trie.set(&s1, 14);
         // 登録されたkeyと値が一致している
-        assert_eq!(s1, trie.get(&s1).unwrap()[0]);
-        assert_eq!(s1, trie.get(&s1).unwrap()[1]);
-        assert_eq!(s1, trie.get(&s1).unwrap()[0]);
-        assert_eq!(s2, trie.get(&s2).unwrap()[0]);
-        assert_eq!(s3, trie.get(&s3).unwrap()[0]);
-        assert_eq!(s4, trie.get(&s4).unwrap()[0]);
+        assert_eq!(10, trie.get(&s1).unwrap()[0]);
+        assert_eq!(14, trie.get(&s1).unwrap()[1]);
+        assert_eq!(11, trie.get(&s2).unwrap()[0]);
+        assert_eq!(12, trie.get(&s3).unwrap()[0]);
+        assert_eq!(13, trie.get(&s4).unwrap()[0]);
     }
 
     #[test]
@@ -298,25 +309,40 @@ mod tests {
     #[test]
     fn test_find_base_1() {
         let nodes: Vec<Node<u32>> = vec![
-            Node::<u32> { key: 1  , values: vec![], nexts: vec![] },
             Node::<u32> { key: 2  , values: vec![], nexts: vec![] },
             Node::<u32> { key: 5  , values: vec![], nexts: vec![] },
             Node::<u32> { key: 255, values: vec![], nexts: vec![] },
         ];
         let mut bit_cache = BitCache::new();
 
-        // 0~1が埋まっている。1, 2, 5を登録できるbase値は2
-        bit_cache.set(0);
-        bit_cache.set(1);
-        assert_eq!(1, Trie::find_base(&nodes, &bit_cache));
+        // 探索開始位置 = 256。空きindex = 256
+        // base値 = 空きindex - 先頭ノードのkey = 256 - 2 = 254
+        assert_eq!(254, Trie::find_base(&nodes, &bit_cache));
 
-        // 0~1, 5~62が埋まっている。1, 2, 5を登録できるbase値は63
-        for i in (5..63) { bit_cache.set(i); }
-        assert_eq!(62, Trie::find_base(&nodes, &bit_cache));
+        // 0 ~ 399, 500 ~ 999 を埋める
+        (256..400).for_each(|i| bit_cache.set(i));
+        (500..1000).for_each(|i| bit_cache.set(i));
 
-        // 0~1, 5~65535が埋まっている。1, 2, 5を登録できるbase値は65536
-        for i in (63..65536) { bit_cache.set(i); }
-        assert_eq!(65535, Trie::find_base(&nodes, &bit_cache));
+        // 探索開始位置 = 256。空きindex = 1000
+        // base値 = 空きindex - 先頭ノードのkey = 1000 - 2 = 998
+        assert_eq!(998, Trie::find_base(&nodes, &bit_cache));
+
+        //1000..1002, 1003..1005, 1006..1255 を埋める
+        (1000..1002).for_each(|i| bit_cache.set(i));
+        (1003..1005).for_each(|i| bit_cache.set(i));
+        (1006..1255).for_each(|i| bit_cache.set(i));
+
+        // 探索開始位置 = 256。空きindex = 1002
+        // base値 = 空きindex - 先頭ノードのkey = 1002 - 2 = 1000
+        assert_eq!(1000, Trie::find_base(&nodes, &bit_cache));
+
+        // 400 ~ 500 を埋める
+        (400..500).for_each(|i| bit_cache.set(i));
+
+        // 探索開始位置=1216。空きindex = 1255
+        // base値 = 空きindex - 先頭ノードのkey = 1255 - 2 = 1253
+        bit_cache.update_start();
+        assert_eq!(1253, Trie::find_base(&nodes, &bit_cache));
     }
 
     #[test]
@@ -342,7 +368,7 @@ mod tests {
         trie.set(&s3, 4);
         trie.set(&s4, 5);
         trie.set(&s5, 6);
-        let (base_arr, check_arr, data_arr) = trie.to_double_array(255);
+        let (base_arr, check_arr, data_arr) = trie.to_double_array();
         // debug_double_array(&base_arr, &check_arr, &data_arr);
         // 登録されていて、data_arrに値が存在するkeyは対応する値を返す
         assert_eq!([1, 2], find(&s1, &base_arr, &check_arr, &data_arr).unwrap());
@@ -358,7 +384,7 @@ mod tests {
     #[should_panic (expected = "(idx=1, base=0, check=0)から(idx=97, base=0, check=0)に遷移できません。(key=abc, i=0, byte=97)")]
     fn test_to_double_array_2() {
         let mut trie: Trie<u32> = Trie::new();
-        let (base_arr, check_arr, data_arr) = trie.to_double_array(255);
+        let (base_arr, check_arr, data_arr) = trie.to_double_array();
         let s1 = String::from("abc");
         // 遷移できない場合はpanicする
         find(&s1, &base_arr, &check_arr, &data_arr).unwrap();
@@ -375,7 +401,7 @@ mod tests {
         trie.set(&s1, 2);
         trie.set(&s2, 3);
         trie.set(&s3, 4);
-        let (base_arr, check_arr, data_arr) = trie.to_double_array(255);
+        let (base_arr, check_arr, data_arr) = trie.to_double_array();
         // 登録されていて、data_arrに値が存在するkeyは対応する値を返す
         assert_eq!([1, 2], find(&s1, &base_arr, &check_arr, &data_arr).unwrap());
         assert_eq!([3], find(&s2, &base_arr, &check_arr, &data_arr).unwrap());

@@ -33,7 +33,7 @@ fn test_build_load_dictionary() {
     }
 
     // ダブル配列構築
-    let (base_arr, check_arr, data_arr) = trie.to_double_array(1048576);
+    let (base_arr, check_arr, data_arr) = trie.to_double_array();
 
     // 辞書書き込み
     DictionarySet::serialize(&base_arr, &check_arr, &data_arr, matrix_builder, "tests/test.dic").ok().unwrap();

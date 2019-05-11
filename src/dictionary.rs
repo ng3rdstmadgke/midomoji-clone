@@ -4,6 +4,7 @@ mod bit_cache;
 
 use self::matrix_builder::MatrixBuilder;
 
+use std::fmt::Debug;
 use std::slice;
 use std::mem;
 use std::io;
@@ -26,7 +27,7 @@ pub struct DictionaryHeader {
 }
 
 
-pub struct DictionarySet<'a, T: Copy> {
+pub struct DictionarySet<'a, T: Copy + Debug> {
     header   : DictionaryHeader,
     base_arr : &'a [u32],
     check_arr: &'a [u32],
@@ -34,7 +35,7 @@ pub struct DictionarySet<'a, T: Copy> {
     matrix   : &'a [i16],
 }
 
-impl<'a, T: Copy> DictionarySet<'a, T> {
+impl<'a, T: Copy + Debug> DictionarySet<'a, T> {
     pub fn new(bytes: &[u8]) -> DictionarySet<'a, T> {
         // header
         let header: DictionaryHeader = unsafe {
@@ -179,6 +180,40 @@ impl<'a, T: Copy> DictionarySet<'a, T> {
         f.write_all(matrix_bytes)?;
         f.flush()?;
         Ok(())
+    }
+
+    /// ダブル配列をデバッグ目的で表示するための関数
+    pub fn debug_double_array(&self, len: usize) {
+        let base_arr = self.base_arr;
+        let check_arr = self.check_arr;
+        let data_arr = self.data_arr;
+        println!("size: base={}, check={}, data={}", base_arr.len(), check_arr.len(), data_arr.len());
+        println!("{:-10} | {:-10} | {:-10} |", "index", "base", "check");
+        println!("{:-10} | {:-10} | {:-10} |", 0, base_arr[0], check_arr[0]);
+        println!("{:-10} | {:-10} | {:-10} |", 1, base_arr[1], check_arr[1]);
+        for i in 2..len {
+            let check = check_arr[i];
+            if  check != 0 {
+                if i == base_arr[check as usize] as usize {
+                    let data_idx = (base_arr[i] >> 8) as usize;
+                    let data_len = (base_arr[i] & 0b11111111) as usize;
+                    println!(
+                        "{:-10} | {:-10} | {:-10} | {:?}",
+                        i,
+                        base_arr[i],
+                        check_arr[i],
+                        &data_arr[data_idx..(data_idx + data_len)],
+                        );
+                } else {
+                    println!(
+                        "{:-10} | {:-10} | {:-10} |",
+                        i,
+                        base_arr[i],
+                        check_arr[i],
+                        );
+                }
+            }
+        }
     }
 }
 

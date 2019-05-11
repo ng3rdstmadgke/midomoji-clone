@@ -71,7 +71,7 @@ fn bench(lex: String) {
 
     timer.reset();
     timer.start();
-    trie.to_double_array(2097152);
+    trie.to_double_array();
     println!("build double_array complete");
     timer.stop();
     timer.print();
@@ -217,7 +217,7 @@ fn build(lex: String, matrix: String, output: String) {
 
     timer.reset();
     timer.start();
-    let (base_arr, check_arr, data_arr) = trie.to_double_array(2097152);
+    let (base_arr, check_arr, data_arr) = trie.to_double_array();
     println!("build double_array complete");
     timer.stop();
     timer.print();
