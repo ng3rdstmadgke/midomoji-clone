@@ -1,6 +1,6 @@
 use crate::dictionary::bit_cache::BitCache;
 
-struct Node<T: Copy> {
+struct Node<T> {
     key   : u8,
     values: Vec<T>,
     nexts : Vec<Node<T>>,
@@ -30,13 +30,15 @@ impl<T: Copy> Trie<T> {
     pub fn set(&mut self, key: &str, value: T) {
         let mut node = &mut self.root;
         for &k in key.as_bytes() {
-           if let Some(i) = Self::binary_search(k, &node.nexts) {
-               node = &mut node.nexts[i];
-           } else {
-               node.nexts.push(Node { key: k, values: Vec::new(), nexts: Vec::new() });
-               let i = Self::sort(&mut node.nexts);
-               node = &mut node.nexts[i];
-           }
+            match node.nexts.binary_search_by(|probe| probe.key.cmp(&k)) {
+                Ok(i) => {
+                    node = &mut node.nexts[i];
+                },
+                Err(i) => {
+                    node.nexts.insert(i, Node { key: k, values: Vec::new(), nexts: Vec::new() });
+                    node = &mut node.nexts[i];
+                }
+            }
         }
         if node.values.len() < 256 {
             self.len += 1;
@@ -44,22 +46,6 @@ impl<T: Copy> Trie<T> {
         } else {
             panic!("登録できる値は1つのkeyに256個までです。")
         }
-    }
-
-    /// 末尾の要素を昇順で正しい位置まで前方に移動する
-    ///
-    /// # Arguments
-    ///
-    /// * `nodes` - ソート対象のノードの配列
-    fn sort(nodes: &mut [Node<T>]) -> usize {
-        for i in (1..nodes.len()).rev() {
-            if nodes[i].key < nodes[i - 1].key {
-                nodes.swap(i, i - 1);
-            } else {
-                return i;
-            }
-        }
-        0
     }
 
     /// trieを探索する
@@ -71,11 +57,14 @@ impl<T: Copy> Trie<T> {
     pub fn get(&self, key: &str) -> Option<&[T]> {
         let mut node = &self.root;
         for &k in key.as_bytes() {
-            if let Some(i) =  Self::binary_search(k, &node.nexts) {
-                node = &node.nexts[i];
-            } else {
-               return None;
-           }
+            match node.nexts.binary_search_by(|probe| probe.key.cmp(&k)) {
+                Ok(i) => {
+                    node = &node.nexts[i];
+                },
+                Err(_) => {
+                    return None;
+                }
+            }
         }
         if node.values.is_empty() {
             None
@@ -84,35 +73,6 @@ impl<T: Copy> Trie<T> {
         }
     }
 
-    /// nodesからkeyを持つNode<K, T>を二分探索で探索する
-    /// 見つかった場合はそのindexを返す
-    ///
-    /// # Arguments
-    ///
-    /// * `key`   - 探索するkey
-    /// * `nodes` - 探索対象のノードの配列
-    fn binary_search(key: u8, nodes: &[Node<T>]) -> Option<usize> {
-        if nodes.is_empty() {
-            return None;
-        }
-        let mut s = 0;
-        let mut e = nodes.len();
-        loop {
-            if s >= e {
-                break;
-            }
-            let pivot = (s + e) / 2;
-            let target = nodes[pivot].key;
-            if key < target {
-                e = pivot;
-            } else if key > target {
-                s = pivot + 1;
-            } else {
-                return Some(pivot);
-            }
-        }
-        None
-    }
 
     /// トライ木をダブル配列に変換する
     ///
