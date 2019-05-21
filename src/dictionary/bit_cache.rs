@@ -131,7 +131,7 @@ mod tests {
         // 探索開始位置=256。最初に見つかる空きノードは256
         assert_eq!(256, bit_cache.find_empty_idx(0));
 
-        for i in (0..1000) {
+        for i in 0..1000 {
             if i % 100 != 0 {
                 bit_cache.set(i);
             }

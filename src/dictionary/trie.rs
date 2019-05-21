@@ -304,10 +304,10 @@ mod tests {
     }
 
     #[test]
-    #[should_panic("探索すべきノードがありません")]
+    #[should_panic(expected = "探索すべきノードがありません")]
     fn test_find_base_2() {
         let nodes: Vec<Node<u32>> = vec![];
-        let mut bit_cache = BitCache::new();
+        let bit_cache = BitCache::new();
         // nodesが空でwith_zero=falseの場合は、base値を求められないのでpanic
         Trie::find_base(&nodes, &bit_cache);
     }
@@ -341,7 +341,7 @@ mod tests {
     #[test]
     #[should_panic (expected = "(idx=1, base=0, check=0)から(idx=97, base=0, check=0)に遷移できません。(key=abc, i=0, byte=97)")]
     fn test_to_double_array_2() {
-        let mut trie: Trie<u32> = Trie::new();
+        let trie: Trie<u32> = Trie::new();
         let (base_arr, check_arr, data_arr) = trie.to_double_array();
         let s1 = String::from("abc");
         // 遷移できない場合はpanicする
