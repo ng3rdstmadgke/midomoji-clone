@@ -29,13 +29,16 @@ pub struct DictionaryHeader {
 
 pub struct DictionarySet<'a, T: Copy + Debug> {
     header   : DictionaryHeader,
-    base_arr : &'a [u32],
-    check_arr: &'a [u32],
-    data_arr : &'a [T],
-    matrix   : &'a [i16],
+    pub base_arr : &'a [u32],
+    pub check_arr: &'a [u32],
+    pub data_arr : &'a [T],
+    pub matrix   : &'a [i16],
 }
 
 impl<'a, T: Copy + Debug> DictionarySet<'a, T> {
+    /**
+     * byte列を辞書として読み込む
+     */
     pub fn new(bytes: &[u8]) -> DictionarySet<'a, T> {
         // header
         let header: DictionaryHeader = unsafe {
@@ -80,6 +83,7 @@ impl<'a, T: Copy + Debug> DictionarySet<'a, T> {
     /// ダブル配列から指定されたkeyを探索する関数
     /// 途中で遷移できなくなった場合、data_arrに値が存在しない場合はNoneを返す
     /// 遷移ができて、data_arrに値が存在する場合はdata_arrのスライスを返す
+    /// デバッグ用
     ///
     /// # Arguments
     ///
@@ -106,6 +110,36 @@ impl<'a, T: Copy + Debug> DictionarySet<'a, T> {
         }
     }
 
+    /// ダブル配列で共通接頭辞検索を行う
+    /// デバッグ用
+    ///
+    /// # Arguments
+    ///
+    /// * `key`       - 探索対象の文字列
+    pub fn prefix_search(&self, key: &'a str) -> Vec<(&'a str, &'a[T])> {
+        let mut ret: Vec<(&str, &[T])> = Vec::new();
+        let mut idx = 1;
+        let mut base = self.base_arr[idx] as usize;
+
+        for (i, &byte) in key.as_bytes().iter().enumerate() {
+            // 次のノードに遷移
+            let next_idx = base + (byte as usize);
+            if self.check_arr[next_idx] as usize != idx {
+                break;
+            }
+            idx = next_idx;
+            base = self.base_arr[idx] as usize;
+            // value があれば戻り値の配列に追加
+            let value_idx = base + (u8::max_value() as usize);
+            if self.check_arr[value_idx] as usize == idx {
+                let data_idx = (self.base_arr[value_idx] >> 8) as usize;
+                let data_len = (self.base_arr[value_idx] & 0b11111111) as usize;
+                ret.push((&key[0..(i + 1)], &self.data_arr[data_idx..(data_idx + data_len)]));
+            }
+        }
+        ret
+    }
+
     /// ダブル配列から指定されたkeyを探索する関数
     /// 途中で遷移できなくなった場合、data_arrに値が存在しない場合はNoneを返す
     /// 遷移ができて、data_arrに値が存在する場合はdata_arrのスライスを返す
@@ -114,6 +148,12 @@ impl<'a, T: Copy + Debug> DictionarySet<'a, T> {
     ///
     /// * `key`       - 探索対象の文字列
     pub fn get_matrix(&self, left_id: usize, right_id: usize) -> i16 {
+        let unknown_id = u16::max_value() as usize;
+        if left_id == unknown_id || right_id == unknown_id {
+            // アドホックな未知語の連接コストの対応。
+            // TODO: 未知語の設定ファイルを読み込めるようにする
+            return i16::max_value();
+        }
         self.matrix[(left_id * self.header.matrix_right_max) + right_id]
     }
 
