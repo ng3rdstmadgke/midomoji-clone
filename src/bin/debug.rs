@@ -27,15 +27,18 @@ fn main() {
     // writer
     //let mut writer = BufWriter::new(io::stdout());
 
-    if let Some(subcommand) = options.get("subcommand") {
-        if subcommand == "build" {
+    if let Some(sub_command) = options.get("sub_command") {
+        if sub_command == "build" {
             build(dict_set, &mut reader);
-        } else if subcommand  == "analyze" {
+        } else if sub_command  == "analyze" {
             analyze(dict_set, &mut reader);
-        } else if subcommand  == "search" {
+        } else if sub_command  == "search" {
             search(dict_set, &mut reader);
-        } else if subcommand  == "prefix_search" {
+        } else if sub_command  == "prefix-search" {
             prefix_search(dict_set, &mut reader);
+        } else {
+            eprintln!("不明なサブコマンド: {}", sub_command);
+            std::process::exit(1);
         }
 
     }
@@ -98,26 +101,31 @@ fn prefix_search<R: Read>(dict_set: DictionarySet<Token>, reader: &mut BufReader
 
 fn parse_args(mut args: Args) -> HashMap<String, String> {
     let mut options = HashMap::new();
-    let script = args.next().unwrap();
+    let _script = args.next().unwrap();
     let mut key: Option<String> = None;
     for arg in args {
         if let Some(k) = key {
             options.insert(k.clone(), arg.to_string());
             key = None;
         } else {
-            if options.get("dict") == None {
+            if arg == "-h" || arg == "--help" {
+                eprintln!("{}", include_str!("../resources/debug.txt"));
+                std::process::exit(1);
+            } else if options.get("dict") == None {
                 options.insert("dict".to_string(), arg);
-            } else if options.get("subcommand") == None {
-                options.insert("subcommand".to_string(), arg);
+            } else if options.get("sub_command") == None {
+                options.insert("sub_command".to_string(), arg);
             } else {
-                panic!("不明なオプション: {}", arg);
+                eprintln!("不明なオプション: {}", arg);
+                std::process::exit(1);
             }
         }
     }
-    let required_opts = ["dict", "subcommand"];
+    let required_opts = ["dict", "sub_command"];
     for k in required_opts.iter() { // k は std::borrow::Borrow<&str>
         if options.get(*k) == None {
-            panic!("usage: {} <DICT_PATH> <build|analyze|search|prefix_search>", script);
+                eprintln!("{}", include_str!("../resources/debug.txt"));
+                std::process::exit(1);
         }
     }
     options

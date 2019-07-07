@@ -1,0 +1,10 @@
+辞書の構築を行うコマンド。
+連接コスト表ファイルと形態素辞書ファイルから辞書ファイルを生成する。
+
+[ usage ]
+
+  build-dict <LEX_PATH> <MATRIX_PATH> <OUTPUT_PATH>
+
+  LEX_PATH   : 形態素辞書ファイルのパスを指定する。
+  MATRIX_PATH: 連接コスト表ファイルのパスを指定する。
+  OUTPUT_PATH: 生成した辞書ファイルの出力先のパスを指定する。

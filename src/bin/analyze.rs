@@ -22,8 +22,8 @@ fn main() {
     let dict_set: DictionarySet<Token> = DictionarySet::new(&mmap);
 
     // reader
-    let mut reader: BufReader<Box<Read>> = if let Some(file) = options.get("file") {
-        BufReader::new(Box::new(File::open(file).ok().unwrap()))
+    let mut reader: BufReader<Box<Read>> = if let Some(input) = options.get("input") {
+        BufReader::new(Box::new(File::open(input).ok().unwrap()))
     } else {
         BufReader::new(Box::new(io::stdin()))
     };
@@ -49,26 +49,31 @@ fn analyze<R: Read, W: Write>(dict_set: DictionarySet<Token>, reader: &mut BufRe
 
 fn parse_args(mut args: Args) -> HashMap<String, String> {
     let mut options = HashMap::new();
-    let script = args.next().unwrap();
+    let _script = args.next().unwrap();
     let mut key: Option<String> = None;
     for arg in args {
         if let Some(k) = key {
             options.insert(k.clone(), arg.to_string());
             key = None;
         } else {
-            if options.get("dict") == None {
+            if arg == "-h" || arg == "--help" {
+                eprintln!("{}", include_str!("../resources/analyze.txt"));
+                std::process::exit(1);
+            } else if options.get("dict") == None {
                 options.insert("dict".to_string(), arg);
-            } else if arg == "-f" || arg == "--file" {
-                key = Some("file".to_string());
+            } else if arg == "-i" || arg == "--input" {
+                key = Some("input".to_string());
             } else {
-                panic!("不明なオプション: {}", arg);
+                eprintln!("不明なオプション: {}", arg);
+                std::process::exit(1);
             }
         }
     }
     let required_opts = ["dict"];
     for k in required_opts.iter() { // k は std::borrow::Borrow<&str>
         if options.get(*k) == None {
-            panic!("usage: {} <DICT_PATH> [-f TARGET_PATH]", script);
+            eprintln!("{}", include_str!("../resources/analyze.txt"));
+            std::process::exit(1);
         }
     }
     options

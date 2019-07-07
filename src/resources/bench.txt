@@ -1,0 +1,18 @@
+性能検証を行うコマンド
+
+[ usage ]
+
+  bench <SUB_COMMAND>
+
+  SUB_COMMAND: サブコマンド
+
+
+[ double_array ]
+  トライ木構築 -> ダブル配列への変換を行い、かかった時間を表示する。
+
+  [ usage ]
+
+    bench double_array <LEX_PATH>
+
+    LEX_PATH: 形態素辞書ファイル。(csv形式)
+
