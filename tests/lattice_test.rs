@@ -6,7 +6,6 @@ use midomoji_clone::lattice::Lattice;
 
 use std::io::prelude::*;
 use std::io::BufReader;
-use std::io::BufWriter;
 use std::fs::File;
 use memmap::*;
 
@@ -22,7 +21,7 @@ fn test_lattice() {
     let dict_set: DictionarySet<Token> = DictionarySet::new(&mmap);
 
     // reader
-    let mut reader: BufReader<File> = BufReader::new(File::open("tests/lattice_test/input.tsv").unwrap());
+    let reader: BufReader<File> = BufReader::new(File::open("tests/lattice_test/input.tsv").unwrap());
 
     for line in reader.lines() {
         let line = line.unwrap();
