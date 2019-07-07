@@ -1,0 +1,40 @@
+いろいろな機能のデバッグを行うコマンド。
+
+[ usage ]
+
+  analyze <DICT_PATH> <SUB_COMMAND>
+
+  DICT_PATH  : 辞書ファイルのパスを指定する。
+  SUB_COMMAND: サブコマンド
+
+
+[ build ]
+
+  標準入力から読み込んだ文字列でラティス構造を構築して出力するコマンド。
+
+  [ usage ]
+    analyze <DICT_PATH> build
+
+
+[ analyze ]
+
+  標準入力から読み込んだ文字列でラティス構造を構築して、解析後のラティス構造と解析結果を出力するコマンド。
+
+  [ usage ]
+    analyze <DICT_PATH> analyze
+
+
+[ search ]
+
+  標準入力から読み込んだ文字列をダブル配列から検索するコマンド。
+
+  [ usage ]
+    analyze <DICT_PATH> search
+
+
+[ prefix-search ]
+
+  標準入力から読み込んだ文字列でダブル配列から共通接頭辞検索を行うコマンド。
+
+  [ usage ]
+    analyze <DICT_PATH> prefix_search

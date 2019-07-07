@@ -23,28 +23,33 @@ fn main() {
 
 fn parse_args(mut args: Args) -> HashMap<String, String> {
     let mut options = HashMap::new();
-    let script = args.next().unwrap();
+    let _script = args.next().unwrap();
     let mut key: Option<String> = None;
     for arg in args {
         if let Some(k) = key {
             options.insert(k.clone(), arg.to_string());
             key = None;
         } else {
-            if options.get("lex") == None {
+            if arg == "-h" || arg == "--help" {
+                eprintln!("{}", include_str!("../resources/build-dict.txt"));
+                std::process::exit(1);
+            } else if options.get("lex") == None {
                 options.insert("lex".to_string(), arg);
             } else if options.get("matrix") == None {
                 options.insert("matrix".to_string(), arg);
             } else if options.get("output") == None {
                 options.insert("output".to_string(), arg);
             } else {
-                panic!("不明なオプション: {}", arg);
+                eprintln!("不明なオプション: {}", arg);
+                std::process::exit(1);
             }
         }
     }
     let required_opts = ["lex", "matrix", "output"];
     for k in required_opts.iter() { // k は std::borrow::Borrow<&str>
         if options.get(*k) == None {
-            panic!("usage: {} <LEX_PATH> <MATRIX_PATH> <OUTPUT_PATH>", script);
+            eprintln!("{}", include_str!("../resources/build-dict.txt"));
+            std::process::exit(1);
         }
     }
     options

@@ -20,17 +20,22 @@ fn main() {
 
 fn parse_args(mut args: Args) -> HashMap<String, String> {
     let mut options = HashMap::new();
-    let script = args.next().unwrap();
-    let sub_command = args.next().expect(&format!("usage: {} <SUB_COMMAND> <ARGS...>", script));
-    if sub_command == "double_array" {
-        parse_args_double_array(&script, args, &mut options);
+    let _script = args.next().unwrap();
+    if let Some(sub_command) = args.next() {
+        if sub_command == "double_array" {
+            parse_args_double_array(args, &mut options);
+        } else {
+            eprintln!("不明なサブコマンド: {}", sub_command);
+            std::process::exit(1);
+        }
     } else {
-        panic!("不明なサブコマンド: {}", sub_command);
+        eprintln!("{}", include_str!("../resources/bench.txt"));
+        std::process::exit(1);
     }
     options
 }
 
-fn parse_args_double_array(script: &str, args: Args, options: &mut HashMap<String, String>) {
+fn parse_args_double_array(args: Args, options: &mut HashMap<String, String>) {
     options.insert("sub_command".to_string(), "double_array".to_string());
     let mut key: Option<String> = None;
     for arg in args {
@@ -38,17 +43,22 @@ fn parse_args_double_array(script: &str, args: Args, options: &mut HashMap<Strin
             options.insert(k.clone(), arg.to_string());
             key = None;
         } else {
-            if options.get("lex") == None {
+            if arg == "-h" || arg == "--help" {
+                eprintln!("{}", include_str!("../resources/bench.txt"));
+                std::process::exit(1);
+            } else if options.get("lex") == None {
                 options.insert("lex".to_string(), arg);
             } else {
-                panic!("不明なオプション: {}", arg);
+                eprintln!("不明なオプション: {}", arg);
+                std::process::exit(1);
             }
         }
     }
     let required_opts = ["lex"];
     for k in required_opts.iter() { // k は std::borrow::Borrow<&str>
         if options.get(*k) == None {
-            panic!("usage: {} double_array <LEX_PATH> [options]", script);
+            eprintln!("{}", include_str!("../resources/bench.txt"));
+            std::process::exit(1);
         }
     }
 }
