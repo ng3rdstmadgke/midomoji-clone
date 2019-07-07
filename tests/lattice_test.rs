@@ -10,6 +10,7 @@ use std::fs::File;
 use memmap::*;
 
 #[test]
+#[ignore]
 fn test_lattice() {
     // 辞書構築
     // 辞書ファイルは予め↓で作っておく
