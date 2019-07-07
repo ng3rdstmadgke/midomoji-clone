@@ -97,7 +97,6 @@ fn build(lex: &str, matrix: &str, output: &str) {
     timer.print();
 
     // 形態素辞書構築
-    // TODO: なぜか長さ0のトークンが登録されてしまう
     timer.reset();
     timer.start();
     let mut trie: Trie<Token> = Trie::new();
